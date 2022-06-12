@@ -3,7 +3,7 @@
 emscripten compile and test:
 run `em++ -O2 rubik_sdl_only.cpp -o rubik.html -s USE_SDL=2 --shell-file minimal.html`
 run `python -m http.server`
-go to http://localhost:8000/rubik.html
+go to http://localhost:8000/index.html
 to quit the http server, do CTRL+C
 */
 
@@ -504,7 +504,6 @@ void Rubik::Update()
     if (done)
     {
         rotating = false;
-        mouselock = false;
         scrambling = false;
         flagged_index = flagged_face = -1;
     }
@@ -540,7 +539,8 @@ void Rubik::StartScramble()
 
 void Rubik::HandleMousePress(int mouseX, int mouseY)
 {
-    if (mouselock) return;
+    if (!rotating && mouselock) mouselock = false; // release
+    else if (rotating) return;
 
     p = ProjectToSphere(mouseX, mouseY);
 }
@@ -555,7 +555,8 @@ void Rubik::HandleMouseRelease(int mouseX, int mouseY)
 
 void Rubik::HandleMouseMotion(int mouseX, int mouseY)
 {
-    if (mouselock) return;
+    if (rotating) return;
+    mouselock = false;
 
     q = ProjectToSphere(mouseX, mouseY);
 
@@ -572,25 +573,26 @@ void Rubik::HandleMouseMotion(int mouseX, int mouseY)
 
 void Rubik::HandleRightMouseButtonPress(int mouseX, int mouseY)
 {
-    if (mouselock) return;
+    if (!rotating && mouselock) mouselock = false; // release
+    else if (rotating) return;
 
     int offset = mouseY * width + mouseX;
 
     flagged_index = mask[offset] & 0b1111;
     flagged_face = mask[offset] >> 4;
 
-    if ((flagged_index >= 0 && flagged_index < 8) &&
-        (flagged_face >= 0 && flagged_face < 6))
-        on_cube = true;
+    on_cube = (flagged_index >= 0 && flagged_index < 8) &&
+              (flagged_face >= 0 && flagged_face < 6);
 
-    //std::cerr << "index=" << flagged_index << ", face=" << flagged_face << std::endl;
+    //std::cerr << "index=" << flagged_index << ", face=" << flagged_face << ", on_cube=" << on_cube << std::endl;
 
     p = Unproject(mouseX, mouseY);
 }
 
 void Rubik::HandleRightMouseButtonRelease(int mouseX, int mouseY)
 {
-    if (mouselock) return;
+    if (rotating) return;
+    mouselock = false;
 
     flagged_index = flagged_face = -1;
     on_cube = false;
@@ -695,7 +697,7 @@ vec3f Rubik::ProjectToSphere(int mouseX, int mouseY)
         z = (r * r / 2.0f) / std::sqrt(length2);
     }
 
-    return vec3f(x, y, z);
+    return vec3f(x, y, z).Unit();
 }
 
 vec3f Rubik::Unproject(int mouseX, int mouseY)
@@ -709,6 +711,7 @@ vec3f Rubik::Unproject(int mouseX, int mouseY)
     float y = v[1];
     float z;
     float length2 = x * x + y * y;
+
     if (length2 <= r * r / 2.0f) // inside the sphere
     {
         z = std::sqrt(r * r - length2);

@@ -1,12 +1,3 @@
-/* g++ rubik_sdl_only.cpp -o rubik_sdl_only -std=c++14 -lSDL2 */
-/*
-emscripten compile and test:
-run `em++ -O2 rubik_sdl_only.cpp -o rubik.html -s USE_SDL=2 --shell-file minimal.html`
-run `python -m http.server`
-go to http://localhost:8000/index.html
-to quit the http server, do CTRL+C
-*/
-
 #include <array>
 #include <algorithm>
 
